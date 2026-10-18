@@ -1,0 +1,1039 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JARVIS | Personal Command Center</title>
+<style>
+:root {
+  font-family: "Segoe UI", Arial, sans-serif;
+  color: #e8edf7;
+  background: #0c1220;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+header {
+  padding: 24px max(20px, calc((100% - 1100px)/2));
+  border-bottom: 1px solid #263247;
+  background: #111a2b;
+}
+header h1 { margin: 0 0 6px; letter-spacing: 2px; }
+header p { margin: 0; color: #aab8cf; }
+main { max-width: 1100px; margin: auto; padding: 24px 18px 50px; }
+.welcome { margin-bottom: 22px; }
+.welcome h2 { margin-bottom: 6px; }
+.muted { color: #aab8cf; }
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.panel {
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid #29364d;
+  border-radius: 14px;
+  background: #141e30;
+}
+.panel h3 { margin: 0 0 14px; }
+form { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+input, textarea, select, button {
+  font: inherit;
+  border-radius: 8px;
+}
+input, textarea, select {
+  min-width: 0;
+  width: 100%;
+  padding: 11px;
+  border: 1px solid #34445e;
+  background: #0c1423;
+  color: #fff;
+}
+form > input:first-child { flex: 1 1 180px; }
+textarea { resize: vertical; min-height: 75px; }
+button {
+  padding: 10px 13px;
+  border: 0;
+  background: #78a9ff;
+  color: #091426;
+  font-weight: 650;
+  cursor: pointer;
+}
+button:hover { filter: brightness(1.08); }
+button:disabled { opacity: .5; cursor: wait; }
+button:focus-visible, input:focus-visible,
+textarea:focus-visible, select:focus-visible {
+  outline: 2px solid #a8c8ff;
+  outline-offset: 2px;
+}
+ul { list-style: none; padding: 0; margin: 0; }
+li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 0;
+  border-bottom: 1px solid #29364d;
+  overflow-wrap: anywhere;
+}
+li:last-child { border-bottom: 0; }
+li span { flex: 1; min-width: 0; }
+li.done span { text-decoration: line-through; color: #8e9bb1; }
+.small-btn {
+  padding: 6px 9px;
+  background: #29364d;
+  color: #e8edf7;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.danger { background: #512b3a; color: #ffdce4; }
+.project, .note {
+  padding: 12px 0;
+  border-bottom: 1px solid #29364d;
+  overflow-wrap: anywhere;
+}
+.project:last-child, .note:last-child { border: 0; }
+.tag {
+  display: inline-block;
+  margin-top: 7px;
+  padding: 4px 8px;
+  border-radius: 20px;
+  background: #243957;
+  color: #c5dcff;
+  font-size: 12px;
+}
+.empty { color: #91a0b8; font-size: 14px; }
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 18px 0;
+}
+.stat {
+  padding: 13px;
+  border: 1px solid #29364d;
+  border-radius: 10px;
+  background: #10192a;
+}
+.stat strong { display: block; font-size: 23px; margin-bottom: 4px; }
+.stat span { color: #aab8cf; font-size: 12px; }
+.status { margin: 12px 0; font-size: 14px; overflow-wrap: anywhere; }
+.status.error { color: #ff9baa; }
+.status.success { color: #9be4b0; }
+.row-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+footer { text-align: center; padding: 18px; color: #91a0b8; }
+@media (max-width: 650px) {
+  .grid { grid-template-columns: 1fr; }
+  header { padding: 20px; }
+  .panel { padding: 16px; }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .row-fields { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>JARVIS</h1>
+  <p>Your personal command center</p>
+</header>
+
+<main>
+  <section class="welcome">
+    <h2>Welcome back.</h2>
+    <p class="muted">Capture ideas. Plan your work. Keep moving forward.</p>
+    <p id="connection" class="status">Connecting to JARVIS backend...</p>
+    <p id="summary" class="muted">Loading your dashboard...</p>
+    <div id="stats" class="stats"></div>
+    <h3>Needs attention</h3>
+    <div id="attention" class="muted">Loading...</div>
+  </section>
+
+  <div class="grid">
+    <section class="panel">
+      <h3>Tasks</h3>
+      <form id="task-form">
+        <input id="task-input" placeholder="What do you need to do?" maxlength="500" required>
+        <div class="row-fields">
+          <select id="task-priority" aria-label="Task priority">
+            <option value="medium">Medium priority</option>
+            <option value="low">Low priority</option>
+            <option value="high">High priority</option>
+            <option value="urgent">Urgent priority</option>
+          </select>
+          <input id="task-due" type="date" aria-label="Due date">
+          <input id="task-minutes" type="number" min="1" max="100000"
+            placeholder="Estimated minutes" aria-label="Estimated minutes">
+          <select id="task-project" aria-label="Assign to project">
+            <option value="">No project</option>
+          </select>
+        </div>
+        <textarea id="task-details" placeholder="Details (optional)"></textarea>
+        <button type="submit">Add task</button>
+      </form>
+      <p class="muted">Open tasks appear first. Tick the box to complete a task.</p>
+      <ul id="task-list"></ul>
+    </section>
+
+    <section class="panel">
+      <h3>Idea Inbox</h3>
+      <form id="idea-form">
+        <input id="idea-input" placeholder="Capture an idea..." maxlength="10000" required>
+        <button type="submit">Save idea</button>
+      </form>
+      <ul id="idea-list"></ul>
+    </section>
+
+    <section class="panel">
+      <h3>Projects</h3>
+      <form id="project-form">
+        <input id="project-name" placeholder="Project name" maxlength="200" required>
+        <textarea id="project-goal" placeholder="What outcome do you want?"></textarea>
+        <div class="row-fields">
+          <select id="project-status" aria-label="Project status">
+            <option value="active">Active</option>
+            <option value="paused">Paused</option>
+            <option value="completed">Completed</option>
+            <option value="archived">Archived</option>
+          </select>
+          <input id="project-deadline" type="date" aria-label="Project deadline">
+        </div>
+        <input id="project-next" placeholder="Next action (optional)">
+        <button type="submit">Create project</button>
+      </form>
+      <div id="project-list"></div>
+    </section>
+
+    <section class="panel">
+      <h3>Project Notes</h3>
+      <form id="note-form">
+        <input id="note-title" placeholder="Note title" maxlength="200" required>
+        <textarea id="note-content" placeholder="Write your note, decision, research, or blocker..."></textarea>
+        <select id="note-project" aria-label="Link note to project">
+          <option value="">General note (no project)</option>
+        </select>
+        <button type="submit">Save note</button>
+      </form>
+      <input id="note-search" placeholder="Search saved notes..." aria-label="Search notes">
+      <div id="note-list"></div>
+    </section>
+
+    <section class="panel">
+      <h3>JARVIS Memory & Data</h3>
+      <p class="muted">
+        Tasks, ideas, projects, and notes are stored in your local SQLite database
+        through the backend API.
+      </p>
+      <p id="memory-count" class="muted"></p>
+      <div class="actions">
+        <button id="import-button" type="button">Import browser data</button>
+        <button id="export-button" type="button">Export database data</button>
+      </div>
+      <p class="muted">
+        Import reads the old <code>jarvis-tasks</code> and
+        <code>jarvis-ideas</code> browser storage entries. Use it once, after
+        checking your existing API data.
+      </p>
+    </section>
+  </div>
+</main>
+
+<footer>JARVIS v0.2 · Project Brain</footer>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const API = "http://127.0.0.1:8000/api";
+
+let tasks = [];
+let ideas = [];
+let projects = [];
+let notes = [];
+let dashboard = null;
+let busy = false;
+
+function setStatus(message, type = "") {
+  const el = $("connection");
+  el.textContent = message;
+  el.className = "status " + type;
+}
+
+async function request(path, options = {}) {
+  const response = await fetch(API + path, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {})
+    }
+  });
+
+  const raw = await response.text();
+  let data = null;
+
+  try {
+    data = raw ? JSON.parse(raw) : null;
+  } catch {
+    data = raw;
+  }
+
+  if (!response.ok) {
+    const detail = data && data.detail
+      ? (typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail))
+      : `HTTP ${response.status}`;
+    throw new Error(detail);
+  }
+
+  return data;
+}
+
+function escapeText(value) {
+  return String(value ?? "");
+}
+
+function addText(parent, text) {
+  const span = document.createElement("span");
+  span.textContent = escapeText(text);
+  parent.appendChild(span);
+  return span;
+}
+
+function addEmpty(parent, message) {
+  const p = document.createElement("p");
+  p.className = "empty";
+  p.textContent = message;
+  parent.appendChild(p);
+}
+
+function addButton(parent, label, callback, danger = false) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = danger ? "small-btn danger" : "small-btn";
+  button.textContent = label;
+  button.addEventListener("click", callback);
+  parent.appendChild(button);
+  return button;
+}
+
+function formatDate(value) {
+  if (!value) return "No due date";
+  const parsed = new Date(value + "T00:00:00");
+  return Number.isNaN(parsed.getTime())
+    ? value
+    : parsed.toLocaleDateString();
+}
+
+function renderTasks() {
+  const list = $("task-list");
+  list.replaceChildren();
+
+  if (!tasks.length) {
+    addEmpty(list, "No tasks yet. Add your first task above.");
+    return;
+  }
+
+  for (const task of tasks) {
+    const li = document.createElement("li");
+    if (task.done) li.classList.add("done");
+
+    const check = document.createElement("input");
+    check.type = "checkbox";
+    check.checked = Boolean(task.done);
+    check.style.width = "auto";
+    check.setAttribute("aria-label", "Mark task complete");
+    check.addEventListener("change", async () => {
+      try {
+        await request(`/tasks/${task.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ done: check.checked })
+        });
+        await refresh();
+      } catch (error) {
+        check.checked = !check.checked;
+        setStatus("Could not update task: " + error.message, "error");
+      }
+    });
+    li.appendChild(check);
+
+    const content = document.createElement("div");
+    content.style.flex = "1";
+    content.style.minWidth = "0";
+    addText(content, task.text);
+
+    const meta = document.createElement("div");
+    meta.className = "muted";
+    meta.style.fontSize = "12px";
+    meta.style.marginTop = "5px";
+
+    const details = [
+      (task.priority || "medium").toUpperCase(),
+      formatDate(task.due_date),
+      task.estimated_minutes ? `${task.estimated_minutes} min` : "",
+      task.project_name || ""
+    ].filter(Boolean);
+
+    meta.textContent = details.join(" · ");
+    content.appendChild(meta);
+
+    if (task.details) {
+      const detailText = document.createElement("div");
+      detailText.className = "muted";
+      detailText.style.fontSize = "13px";
+      detailText.style.marginTop = "5px";
+      detailText.textContent = task.details;
+      content.appendChild(detailText);
+    }
+
+    li.appendChild(content);
+
+    addButton(li, "Edit", async () => {
+      const text = prompt("Task name:", task.text);
+      if (text === null) return;
+      if (!text.trim()) {
+        alert("Task name cannot be blank.");
+        return;
+      }
+
+      const priority = prompt(
+        "Priority: low, medium, high, or urgent",
+        task.priority || "medium"
+      );
+      if (priority === null) return;
+      if (!["low", "medium", "high", "urgent"].includes(priority.trim().toLowerCase())) {
+        alert("Please enter low, medium, high, or urgent.");
+        return;
+      }
+
+      const due = prompt(
+        "Due date in YYYY-MM-DD format, or leave blank",
+        task.due_date || ""
+      );
+      if (due === null) return;
+      if (due.trim() && !/^\d{4}-\d{2}-\d{2}$/.test(due.trim())) {
+        alert("Use YYYY-MM-DD for the due date.");
+        return;
+      }
+
+      try {
+        await request(`/tasks/${task.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            text: text.trim(),
+            priority: priority.trim().toLowerCase(),
+            due_date: due.trim() || null
+          })
+        });
+        await refresh();
+        setStatus("Task updated.", "success");
+      } catch (error) {
+        setStatus("Could not edit task: " + error.message, "error");
+      }
+    });
+
+    addButton(li, "Delete", async () => {
+      if (!confirm(`Delete task "${task.text}"?`)) return;
+      try {
+        await request(`/tasks/${task.id}`, { method: "DELETE" });
+        await refresh();
+        setStatus("Task deleted.", "success");
+      } catch (error) {
+        setStatus("Could not delete task: " + error.message, "error");
+      }
+    }, true);
+
+    list.appendChild(li);
+  }
+}
+
+function renderIdeas() {
+  const list = $("idea-list");
+  list.replaceChildren();
+
+  if (!ideas.length) {
+    addEmpty(list, "No ideas yet. Capture one before you forget.");
+    return;
+  }
+
+  for (const idea of ideas) {
+    const li = document.createElement("li");
+    addText(li, idea.text);
+    addButton(li, "Delete", async () => {
+      if (!confirm("Delete this idea?")) return;
+      try {
+        await request(`/ideas/${idea.id}`, { method: "DELETE" });
+        await refresh();
+        setStatus("Idea deleted.", "success");
+      } catch (error) {
+        setStatus("Could not delete idea: " + error.message, "error");
+      }
+    }, true);
+    list.appendChild(li);
+  }
+}
+
+function renderProjectSelectors() {
+  for (const id of ["task-project", "note-project"]) {
+    const select = $(id);
+    const previous = select.value;
+    select.replaceChildren();
+
+    const empty = document.createElement("option");
+    empty.value = "";
+    empty.textContent = id === "task-project"
+      ? "No project"
+      : "General note (no project)";
+    select.appendChild(empty);
+
+    for (const project of projects) {
+      const option = document.createElement("option");
+      option.value = project.id;
+      option.textContent = project.name;
+      select.appendChild(option);
+    }
+
+    if ([...select.options].some(option => option.value === previous)) {
+      select.value = previous;
+    }
+  }
+}
+
+function renderProjects() {
+  const container = $("project-list");
+  container.replaceChildren();
+
+  if (!projects.length) {
+    addEmpty(container, "No projects yet. Create your first project.");
+    return;
+  }
+
+  for (const project of projects) {
+    const div = document.createElement("div");
+    div.className = "project";
+
+    const title = document.createElement("strong");
+    title.textContent = project.name;
+    div.appendChild(title);
+
+    if (project.goal) {
+      const goal = document.createElement("div");
+      goal.className = "muted";
+      goal.style.marginTop = "5px";
+      goal.textContent = project.goal;
+      div.appendChild(goal);
+    }
+
+    const progress = document.createElement("div");
+    progress.className = "muted";
+    progress.style.marginTop = "6px";
+    const total = Number(project.total_tasks || 0);
+    const completed = Number(project.completed_tasks || 0);
+    progress.textContent = `Tasks: ${completed}/${total} completed`;
+    div.appendChild(progress);
+
+    const tag = document.createElement("span");
+    tag.className = "tag";
+    tag.textContent = project.status + (
+      project.deadline ? " · Due " + formatDate(project.deadline) : ""
+    );
+    div.appendChild(tag);
+
+    if (project.next_action) {
+      const next = document.createElement("p");
+      next.className = "muted";
+      next.style.marginBottom = "0";
+      next.textContent = "Next: " + project.next_action;
+      div.appendChild(next);
+    }
+
+    const actions = document.createElement("div");
+    actions.className = "actions";
+
+    addButton(actions, "Add task", () => {
+      $("task-project").value = String(project.id);
+      $("task-input").focus();
+      window.scrollTo({ top: $("task-form").getBoundingClientRect().top + window.scrollY - 100, behavior: "smooth" });
+    });
+
+    addButton(actions, "Edit project", async () => {
+      const name = prompt("Project name:", project.name);
+      if (name === null) return;
+      if (!name.trim()) {
+        alert("Project name cannot be blank.");
+        return;
+      }
+
+      const goal = prompt("Project goal:", project.goal || "");
+      if (goal === null) return;
+
+      const status = prompt(
+        "Status: active, paused, completed, or archived",
+        project.status
+      );
+      if (status === null) return;
+      if (!["active", "paused", "completed", "archived"].includes(status.trim().toLowerCase())) {
+        alert("Invalid project status.");
+        return;
+      }
+
+      const deadline = prompt(
+        "Deadline in YYYY-MM-DD format, or blank",
+        project.deadline || ""
+      );
+      if (deadline === null) return;
+      if (deadline.trim() && !/^\d{4}-\d{2}-\d{2}$/.test(deadline.trim())) {
+        alert("Use YYYY-MM-DD for the deadline.");
+        return;
+      }
+
+      const next = prompt("Next action:", project.next_action || "");
+      if (next === null) return;
+
+      try {
+        await request(`/projects/${project.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            name: name.trim(),
+            goal,
+            status: status.trim().toLowerCase(),
+            deadline: deadline.trim() || null,
+            next_action: next
+          })
+        });
+        await refresh();
+        setStatus("Project updated.", "success");
+      } catch (error) {
+        setStatus("Could not edit project: " + error.message, "error");
+      }
+    });
+
+    addButton(actions, "Delete project", async () => {
+      if (!confirm(
+        `Delete "${project.name}"? Its tasks and notes will be kept, but unlinked from this project.`
+      )) return;
+
+      try {
+        await request(`/projects/${project.id}`, { method: "DELETE" });
+        await refresh();
+        setStatus("Project deleted. Related tasks and notes were preserved.", "success");
+      } catch (error) {
+        setStatus("Could not delete project: " + error.message, "error");
+      }
+    }, true);
+
+    div.appendChild(actions);
+    container.appendChild(div);
+  }
+}
+
+function renderNotes() {
+  const container = $("note-list");
+  container.replaceChildren();
+
+  if (!notes.length) {
+    addEmpty(container, "No notes yet. Save useful information here.");
+    return;
+  }
+
+  for (const note of notes) {
+    const div = document.createElement("div");
+    div.className = "note";
+
+    const title = document.createElement("strong");
+    title.textContent = note.title;
+    div.appendChild(title);
+
+    const projectLabel = document.createElement("div");
+    projectLabel.className = "muted";
+    projectLabel.style.fontSize = "12px";
+    projectLabel.textContent = note.project_name
+      ? "Project: " + note.project_name
+      : "General note";
+    div.appendChild(projectLabel);
+
+    const content = document.createElement("p");
+    content.style.whiteSpace = "pre-wrap";
+    content.textContent = note.content || "";
+    div.appendChild(content);
+
+    const actions = document.createElement("div");
+    actions.className = "actions";
+
+    addButton(actions, "Edit note", async () => {
+      const titleValue = prompt("Note title:", note.title);
+      if (titleValue === null) return;
+      if (!titleValue.trim()) {
+        alert("Note title cannot be blank.");
+        return;
+      }
+
+      const contentValue = prompt("Note content:", note.content || "");
+      if (contentValue === null) return;
+
+      const projectOptions = projects.map(p => `${p.id}: ${p.name}`).join("\n");
+      const projectValue = prompt(
+        "Project ID for this note, or leave blank for a general note.\n" + projectOptions,
+        note.project_id == null ? "" : String(note.project_id)
+      );
+      if (projectValue === null) return;
+
+      const projectId = projectValue.trim() ? Number(projectValue.trim()) : null;
+      if (projectId !== null && !projects.some(p => p.id === projectId)) {
+        alert("That project ID does not exist.");
+        return;
+      }
+
+      try {
+        await request(`/notes/${note.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            title: titleValue.trim(),
+            content: contentValue,
+            project_id: projectId
+          })
+        });
+        await refresh();
+        setStatus("Note updated.", "success");
+      } catch (error) {
+        setStatus("Could not edit note: " + error.message, "error");
+      }
+    });
+
+    addButton(actions, "Delete", async () => {
+      if (!confirm(`Delete note "${note.title}"?`)) return;
+      try {
+        await request(`/notes/${note.id}`, { method: "DELETE" });
+        await refresh();
+        setStatus("Note deleted.", "success");
+      } catch (error) {
+        setStatus("Could not delete note: " + error.message, "error");
+      }
+    }, true);
+
+    div.appendChild(actions);
+    container.appendChild(div);
+  }
+}
+
+function renderDashboard() {
+  const s = dashboard?.summary || {};
+  $("summary").textContent =
+    `${s.completed_tasks || 0} of ${s.total_tasks || 0} tasks completed. ` +
+    `${s.active_projects || 0} active projects.`;
+
+  const cards = [
+    ["Open tasks", s.open_tasks],
+    ["Overdue", s.overdue_tasks],
+    ["Due today", s.due_today],
+    ["Next 7 days", s.upcoming_7_days],
+    ["Active projects", s.active_projects],
+    ["Saved notes", s.total_notes]
+  ];
+
+  const stats = $("stats");
+  stats.replaceChildren();
+
+  for (const [label, value] of cards) {
+    const card = document.createElement("div");
+    card.className = "stat";
+    const strong = document.createElement("strong");
+    strong.textContent = String(value ?? 0);
+    const span = document.createElement("span");
+    span.textContent = label;
+    card.append(strong, span);
+    stats.appendChild(card);
+  }
+
+  const attention = $("attention");
+  attention.replaceChildren();
+
+  const groups = [
+    ["Overdue", dashboard?.overdue || []],
+    ["Due today", dashboard?.due_today || []],
+    ["Upcoming", dashboard?.upcoming || []]
+  ];
+
+  let any = false;
+  for (const [label, items] of groups) {
+    if (!items.length) continue;
+    any = true;
+
+    const heading = document.createElement("p");
+    heading.style.fontWeight = "650";
+    heading.textContent = label;
+    attention.appendChild(heading);
+
+    const ul = document.createElement("ul");
+    for (const task of items.slice(0, 5)) {
+      const li = document.createElement("li");
+      addText(li, `${task.text} · ${formatDate(task.due_date)}`);
+      ul.appendChild(li);
+    }
+    attention.appendChild(ul);
+  }
+
+  if (!any) {
+    addEmpty(attention, "Nothing overdue or scheduled for the next seven days.");
+  }
+
+  $("memory-count").textContent =
+    `${tasks.length} tasks · ${ideas.length} ideas · ` +
+    `${projects.length} projects · ${notes.length} notes`;
+}
+
+function render() {
+  renderTasks();
+  renderIdeas();
+  renderProjectSelectors();
+  renderProjects();
+  renderNotes();
+  renderDashboard();
+}
+
+async function refresh() {
+  const results = await Promise.all([
+    request("/tasks"),
+    request("/ideas"),
+    request("/projects"),
+    request("/notes" + (
+      $("note-search").value.trim()
+        ? "?search=" + encodeURIComponent($("note-search").value.trim())
+        : ""
+    )),
+    request("/dashboard")
+  ]);
+
+  [tasks, ideas, projects, notes, dashboard] = results;
+  render();
+  setStatus("Connected to JARVIS backend · SQLite database", "success");
+}
+
+$("task-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  if (busy) return;
+
+  const text = $("task-input").value.trim();
+  if (!text) return;
+
+  const minutesValue = $("task-minutes").value;
+  const projectValue = $("task-project").value;
+
+  const body = {
+    text,
+    priority: $("task-priority").value,
+    due_date: $("task-due").value || null,
+    estimated_minutes: minutesValue ? Number(minutesValue) : null,
+    details: $("task-details").value.trim() || null,
+    project_id: projectValue ? Number(projectValue) : null
+  };
+
+  busy = true;
+  try {
+    await request("/tasks", { method: "POST", body: JSON.stringify(body) });
+    $("task-input").value = "";
+    $("task-due").value = "";
+    $("task-minutes").value = "";
+    $("task-details").value = "";
+    $("task-priority").value = "medium";
+    await refresh();
+    setStatus("Task saved to SQLite.", "success");
+  } catch (error) {
+    setStatus("Could not save task: " + error.message, "error");
+  } finally {
+    busy = false;
+  }
+});
+
+$("idea-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  const text = $("idea-input").value.trim();
+  if (!text) return;
+
+  try {
+    await request("/ideas", {
+      method: "POST",
+      body: JSON.stringify({ text })
+    });
+    $("idea-input").value = "";
+    await refresh();
+    setStatus("Idea saved to SQLite.", "success");
+  } catch (error) {
+    setStatus("Could not save idea: " + error.message, "error");
+  }
+});
+
+$("project-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  const name = $("project-name").value.trim();
+  if (!name) return;
+
+  try {
+    await request("/projects", {
+      method: "POST",
+      body: JSON.stringify({
+        name,
+        goal: $("project-goal").value.trim() || null,
+        status: $("project-status").value,
+        deadline: $("project-deadline").value || null,
+        next_action: $("project-next").value.trim() || null
+      })
+    });
+
+    $("project-form").reset();
+    await refresh();
+    setStatus("Project created.", "success");
+  } catch (error) {
+    setStatus("Could not create project: " + error.message, "error");
+  }
+});
+
+$("note-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  const title = $("note-title").value.trim();
+  if (!title) return;
+
+  const projectValue = $("note-project").value;
+
+  try {
+    await request("/notes", {
+      method: "POST",
+      body: JSON.stringify({
+        title,
+        content: $("note-content").value,
+        project_id: projectValue ? Number(projectValue) : null
+      })
+    });
+
+    $("note-form").reset();
+    await refresh();
+    setStatus("Note saved to SQLite.", "success");
+  } catch (error) {
+    setStatus("Could not save note: " + error.message, "error");
+  }
+});
+
+let searchTimer;
+$("note-search").addEventListener("input", () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(async () => {
+    try {
+      await refresh();
+    } catch (error) {
+      setStatus("Could not search notes: " + error.message, "error");
+    }
+  }, 250);
+});
+
+$("import-button").addEventListener("click", async () => {
+  const marker = "jarvis-v02-browser-import-complete";
+
+  if (localStorage.getItem(marker) === "yes") {
+    alert("This browser's data has already been imported using this button. Export a backup before attempting any manual import again.");
+    return;
+  }
+
+  let oldTasks = [];
+  let oldIdeas = [];
+
+  try {
+    const taskValue = JSON.parse(localStorage.getItem("jarvis-tasks") || "[]");
+    const ideaValue = JSON.parse(localStorage.getItem("jarvis-ideas") || "[]");
+    oldTasks = Array.isArray(taskValue) ? taskValue : [];
+    oldIdeas = Array.isArray(ideaValue) ? ideaValue : [];
+  } catch {
+    alert("The old browser data could not be read as valid JSON. Nothing was imported.");
+    return;
+  }
+
+  const message =
+    `Import ${oldTasks.length} browser tasks and ${oldIdeas.length} browser ideas into SQLite?\n\n` +
+    "Existing database records will not be deleted. This may create duplicates if you previously copied the same items into the API.";
+  if (!confirm(message)) return;
+
+  let importedTasks = 0;
+  let importedIdeas = 0;
+
+  try {
+    for (const task of oldTasks) {
+      if (!task || typeof task.text !== "string" || !task.text.trim()) continue;
+
+      const created = await request("/tasks", {
+        method: "POST",
+        body: JSON.stringify({
+          text: task.text.trim(),
+          priority: "medium"
+        })
+      });
+
+      if (task.done) {
+        await request(`/tasks/${created.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ done: true })
+        });
+      }
+      importedTasks++;
+    }
+
+    for (const idea of oldIdeas) {
+      if (!idea || typeof idea.text !== "string" || !idea.text.trim()) continue;
+
+      await request("/ideas", {
+        method: "POST",
+        body: JSON.stringify({ text: idea.text.trim() })
+      });
+      importedIdeas++;
+    }
+
+    localStorage.setItem(marker, "yes");
+    await refresh();
+    setStatus(
+      `Imported ${importedTasks} tasks and ${importedIdeas} ideas. Browser originals were kept.`,
+      "success"
+    );
+  } catch (error) {
+    setStatus(
+      `Import stopped after ${importedTasks} tasks and ${importedIdeas} ideas. ` +
+      `Do not click import again until you check for duplicates. Error: ${error.message}`,
+      "error"
+    );
+  }
+});
+
+$("export-button").addEventListener("click", async () => {
+  try {
+    const data = {
+      exportedAt: new Date().toISOString(),
+      tasks: await request("/tasks"),
+      ideas: await request("/ideas"),
+      projects: await request("/projects"),
+      notes: await request("/notes"),
+      dashboard: await request("/dashboard")
+    };
+
+    const file = new Blob([JSON.stringify(data, null, 2)], {
+      type: "application/json"
+    });
+
+    const url = URL.createObjectURL(file);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "jarvis-backup.json";
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setStatus("Database data exported.", "success");
+  } catch (error) {
+    setStatus("Export failed: " + error.message, "error");
+  }
+});
+
+refresh().catch(error => {
+  setStatus(
+    "Cannot connect to the API. Start the backend and open this page using Live Server. " +
+    error.message,
+    "error"
+  );
+  $("summary").textContent = "Dashboard unavailable until the backend connects.";
+  $("stats").replaceChildren();
+  $("attention").textContent = "Backend connection required.";
+});
+</script>
+</body>
+</html>
